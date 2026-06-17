@@ -1,0 +1,18 @@
+# Python virtual environment — don't upload this, it's huge
+venv/
+
+# Python cache files — auto-generated, not needed
+__pycache__/
+*.pyc
+
+# React dependencies — npm install will recreate these
+node_modules/
+
+# React build output — generated files, not source code
+frontend/build/
+
+# Environment variables — may contain secrets
+.env
+
+# VS Code settings — personal to your machine
+.vscode/
