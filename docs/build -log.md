@@ -81,3 +81,65 @@ ConceptWhat it means in plain EnglishVirtual environmentA separate Python "room"
 
 DECISIONS MADE
 DecisionWhat we choseWhyFrontendReactIndustry standard, shows up in every job postingBackendFastAPIYou already know Python, same patterns as NBA appDatabaseSQLiteReal persistent storage, no setup complexity for V1AuthUser accountsMost impressive for portfolio — shows real engineeringRepo visibilityPublicEmployers can
+
+
+Session Recap — Internship Tracker: Authentication
+Date: June 17, 2026
+
+Time spent: ~1.5 hours
+
+WHAT
+Built a complete authentication system for the Internship Tracker backend — including database setup, password hashing, and JWT token login.
+
+WHY
+Authentication is the foundation of any multi-user app. Without it, anyone could see anyone else's applications. Building this yourself (instead of using a third-party service) shows interviewers you understand how security actually works under the hood.
+
+HOW
+Step 1 — Installed new packages
+bashpip install sqlalchemy passlib[bcrypt] python-jose[cryptography] pydantic[email]
+pip install bcrypt==4.0.1  # downgraded due to bcrypt 5.0.0 + passlib incompatibility
+Step 2 — Created database.py
+
+Set up SQLite connection using SQLAlchemy
+Created engine (the pipeline to the database)
+Created SessionLocal (a factory for database sessions)
+Created Base (the foundation all models inherit from)
+Created get_db() — a FastAPI dependency that opens and closes a session per request using yield
+
+Step 3 — Created models.py
+
+Defined the User class inheriting from Base
+Columns: id, email, username, hashed_password, is_active
+unique=True on email and username prevents duplicates
+nullable=False makes fields required
+
+Step 4 — Created schemas.py
+
+UserCreate — shape of data coming IN for register (email, username, password)
+UserLogin — shape of data coming IN for login (email, password)
+UserResponse — shape of data going OUT (no password ever returned)
+Token — shape of JWT response after login
+TokenData — what's stored inside the token
+
+Step 5 — Created auth.py
+
+hash_password() — hashes plain text password with bcrypt (truncated to 72 chars)
+verify_password() — compares plain text to stored hash without decrypting
+create_access_token() — creates a signed JWT with expiry time
+verify_token() — decodes and validates a JWT, returns email or None
+
+Step 6 — Updated main.py
+
+Added Base.metadata.create_all() to auto-create tables on startup
+Added /register endpoint — checks for duplicate email/username, hashes password, saves user
+Added /login endpoint — finds user, verifies password, returns JWT token
+
+
+KEY CONCEPTS LEARNED
+ConceptPlain English explanationORMWrite Python instead of SQL — SQLAlchemy translates itModelA Python class that represents a database tableSchemaDefines the shape of data coming in/out of the APIPassword hashingScrambles password so it can never be reversed — industry standardbcryptThe hashing algorithm — one-way, slow by design to resist attacksJWTA signed token like a wristband — proves who you are without hitting the databaseyield in get_db()Opens a session, gives it to the route, closes it automatically when done400 Bad RequestClient sent invalid data (e.g. duplicate email)401 UnauthorizedWrong credentials
+
+BUGS DEBUGGED
+BugCauseFixImportError: email-validator not installedEmailStr needs an extra packagepip install pydantic[email]ValueError: password cannot be longer than 72 bytesbcrypt 5.0.0 incompatible with passlibDowngraded to bcrypt==4.0.1 and added [:72] slice
+
+DECISIONS MADE
+DecisionChoiceWhyPassword storagebcrypt hash only, never plain textIndustry standard — irreversibleToken expiry30 minutesBalances security and convenienceDuplicate checkBoth email and usernamePrevents confusion and account conflictsError message for wrong loginSame message for bad email or bad passwordPrevents attackers from guessing valid emails
