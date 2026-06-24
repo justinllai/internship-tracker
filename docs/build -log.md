@@ -143,3 +143,56 @@ BugCauseFixImportError: email-validator not installedEmailStr needs an extra pac
 
 DECISIONS MADE
 DecisionChoiceWhyPassword storagebcrypt hash only, never plain textIndustry standard — irreversibleToken expiry30 minutesBalances security and convenienceDuplicate checkBoth email and usernamePrevents confusion and account conflictsError message for wrong loginSame message for bad email or bad passwordPrevents attackers from guessing valid emails
+
+
+Session Recap — Internship Tracker: Applications CRUD
+Date: June 23, 2026
+
+Time spent: ~1.5 hours
+
+WHAT
+Built the core feature of the app — a complete CRUD API for internship applications, protected by JWT authentication so users can only see and modify their own data.
+
+WHY
+CRUD is the foundation of every real application. Without it the app has no actual functionality — users couldn't add, view, update, or delete their applications. This is also the session where the backend became fully functional as a standalone API.
+
+HOW
+Step 1 — Added Application model to models.py
+
+Created Application table with: id, company_name, position, status, deadline, notes, date_applied, owner_id
+Added ForeignKey("users.id") to link each application to its owner
+Added relationship() on both User and Application so SQLAlchemy can navigate between them
+
+Step 2 — Added Application schemas to schemas.py
+
+ApplicationCreate — required: company_name, position. Optional: status, deadline, notes
+ApplicationUpdate — everything Optional so users can update just one field
+ApplicationResponse — includes system fields: id, date_applied, owner_id
+
+Step 3 — Added get_current_user dependency to main.py
+
+Uses OAuth2PasswordBearer to extract token from request header
+Calls verify_token() to decode the JWT and get the email
+Looks up the user in the database by email
+Returns the user object or raises 401 Unauthorized
+
+Step 4 — Built 5 application endpoints
+POST   /applications          → create new application
+GET    /applications          → get all MY applications
+GET    /applications/{id}     → get one specific application
+PUT    /applications/{id}     → update one field or all fields
+DELETE /applications/{id}     → permanently delete
+Step 5 — Tested all 5 endpoints using PowerShell
+
+Got token via login
+Created Google Software Engineer Intern application
+Updated status from "Applied" to "Interview"
+Deleted the application
+Verified deletion with GET all returning empty
+
+
+KEY CONCEPTS LEARNED
+ConceptPlain EnglishCRUDThe 4 operations every app needs: Create, Read, Update, DeleteProtected routeAn endpoint that requires a valid JWT token to accessDepends(get_current_user)Runs the security check automatically before the endpointowner_id checkEnsures users can only access their own data — never others'exclude_unset=TrueOnly updates fields the user actually sent — leaves the rest alonePath parameter {id}A variable in the URL that identifies which resource to act on401 UnauthorizedToken is missing, invalid, or expired404 Not FoundThe resource doesn't exist or doesn't belong to this userSwagger UI /docsAuto-generated API testing interface — free with FastAPI
+
+DECISIONS MADE
+DecisionChoiceWhyAlways filter by owner_idYes, on every querySecurity — prevents users accessing each other's datadate_applied auto-setdefault=datetime.utcnowUser shouldn't have to set this manuallyowner_id from tokenNot from request bodyPrevents users from creating applications for other usersAll update fields OptionalYesUsers should only have to send what they're changing
