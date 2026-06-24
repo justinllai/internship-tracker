@@ -6,51 +6,81 @@
 # ============================================================
 
 
-# We import Base from database.py — every model must inherit
-# from Base so SQLAlchemy knows it represents a database table.
 from database import Base
-
-# Column defines a column in the table.
-# Integer, String, Boolean are the data types for each column.
-from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
+from datetime import datetime
 
 
 # ============================================================
 # USER MODEL — Represents the "users" table
 # ============================================================
 
-# By inheriting from Base, we're telling SQLAlchemy:
-# "This class is a database table, not just a regular class."
 class User(Base):
-
-    # __tablename__ tells SQLAlchemy what to name the table
-    # in the actual database file.
     __tablename__ = "users"
 
     # id: A unique number for every user.
     # primary_key=True means this is the unique identifier.
-    # index=True makes searching by id much faster.
-    # Think of it like a student ID number — every user gets one.
     id = Column(Integer, primary_key=True, index=True)
 
     # email: The user's email address.
     # unique=True means no two users can have the same email.
-    # index=True makes searching by email faster.
-    # nullable=False means this field is required — can't be empty.
     email = Column(String, unique=True, index=True, nullable=False)
 
     # username: The user's display name.
-    # unique=True means no two users can have the same username.
     username = Column(String, unique=True, index=True, nullable=False)
 
     # hashed_password: We NEVER store the real password.
-    # Instead we store a hashed (scrambled) version.
-    # Even if someone stole our database, they couldn't
-    # recover the original passwords. This is industry standard.
     hashed_password = Column(String, nullable=False)
 
     # is_active: Is this account active?
-    # default=True means new accounts are active by default.
-    # We could set this to False to "ban" or "deactivate" a user
-    # without deleting their data.
     is_active = Column(Boolean, default=True)
+
+    # relationship: One User can have many Applications.
+    # This is not a column — it's a virtual link SQLAlchemy uses
+    # so we can write user.applications to get all their applications.
+    applications = relationship("Application", back_populates="owner")
+
+
+# ============================================================
+# APPLICATION MODEL — Represents the "applications" table
+# This is the core of our app — each row is one internship
+# application a user has submitted.
+# ============================================================
+
+class Application(Base):
+    __tablename__ = "applications"
+
+    # id: Unique identifier for each application.
+    id = Column(Integer, primary_key=True, index=True)
+
+    # company_name: The company the user applied to.
+    company_name = Column(String, nullable=False)
+
+    # position: The job title they applied for.
+    position = Column(String, nullable=False)
+
+    # status: Where are they in the process?
+    # Values we'll use: "Applied", "Interview", "Offer", "Rejected"
+    status = Column(String, default="Applied")
+
+    # deadline: Application or interview deadline.
+    # nullable=True means this field is optional.
+    deadline = Column(DateTime, nullable=True)
+
+    # notes: Any extra notes the user wants to add.
+    # nullable=True means this field is optional.
+    notes = Column(String, nullable=True)
+
+    # date_applied: Automatically set to when the record was created.
+    # default=datetime.utcnow means we never have to set this manually.
+    date_applied = Column(DateTime, default=datetime.utcnow)
+
+    # owner_id: Which user does this application belong to?
+    # ForeignKey links this to the id column in the users table.
+    # This is how we know "this application belongs to user #3."
+    owner_id = Column(Integer, ForeignKey("users.id"))
+
+    # relationship: The other side of the User relationship.
+    # This lets us do application.owner to get the User object.
+    owner = relationship("User", back_populates="applications")
