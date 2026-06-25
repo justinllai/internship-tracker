@@ -196,3 +196,69 @@ ConceptPlain EnglishCRUDThe 4 operations every app needs: Create, Read, Update, 
 
 DECISIONS MADE
 DecisionChoiceWhyAlways filter by owner_idYes, on every querySecurity — prevents users accessing each other's datadate_applied auto-setdefault=datetime.utcnowUser shouldn't have to set this manuallyowner_id from tokenNot from request bodyPrevents users from creating applications for other usersAll update fields OptionalYesUsers should only have to send what they're changing
+
+
+Session Recap — Internship Tracker: React Frontend
+Date: June 24, 2026
+
+Time spent: ~1 hour
+
+WHAT
+Built the React frontend with Login and Register pages that connect to the FastAPI backend. Users can now register and log in through a real UI instead of PowerShell commands.
+
+WHY
+The backend was fully functional but unusable for real people. The frontend is what turns an API into an actual product. This session is where the app started feeling real — a user can now open a browser, create an account, and log in.
+
+HOW
+Step 1 — Created folder structure
+frontend/src/
+├── pages/
+│   ├── Login.js
+│   └── Register.js
+├── App.js
+└── index.js
+Step 2 — Built Login.js
+
+4 pieces of state: email, password, error, loading
+handleSubmit sends POST to /login with email and password
+On success: stores JWT token in localStorage
+On failure: displays error message from FastAPI
+Loading state disables button while waiting for response
+
+Step 3 — Built Register.js
+
+5 pieces of state: email, username, password, error, success, loading
+handleSubmit sends POST to /register
+On success: shows success screen with "Go to Login" button
+On failure: displays error message (e.g. "Email already registered")
+
+Step 4 — Installed React Router
+bashnpm install react-router-dom
+Step 5 — Updated App.js with routing
+
+BrowserRouter enables client-side routing
+/ → Login page
+/register → Register page
+* → redirects unknown URLs to login
+
+Step 6 — Added navigation between pages
+
+useNavigate hook lets us navigate programmatically
+"Sign up" on Login → goes to /register
+"Sign in" on Register → goes to /
+
+Step 7 — Fixed git submodule issue
+
+Create React App created its own .git folder inside frontend/
+This made git treat frontend as a submodule instead of a regular folder
+Fixed by deleting frontend/.git and re-adding with git rm -r --cached frontend
+
+
+KEY CONCEPTS LEARNED
+ConceptPlain EnglishReact componentA function that returns JSX (HTML-like UI)useStateStores data that can change — when it changes React re-rendersJSXHTML-like syntax inside JavaScript — React's way of building UIe.preventDefault()Stops form from reloading the page on submitfetch()JavaScript's built-in tool for making HTTP requestslocalStorageBrowser storage that persists across page refreshes — where we store the JWT tokenresponse.okTrue if status code is 200-299 (success)React RouterLibrary for client-side navigation — no page reloadsuseNavigateHook that gives us a function to navigate between pagesClient-side routingURL changes without browser reloading — makes apps feel fastGit submoduleA git repo inside another git repo — caused issues, fixed by removing inner .git
+
+DECISIONS MADE
+DecisionChoiceWhyToken storagelocalStoragePersists across page refreshes so users stay logged inError displayInline in the formBetter UX than alertsLoading stateDisable button while waitingPrevents double submissionsNavigationReact RouterIndustry standard for React apps
+
+BUGS DEBUGGED
+BugCauseFixFrontend not pushing to GitHubCreate React App created its own .git inside frontend/ making it a submoduleDeleted frontend/.git, ran git rm -r --cached frontend, re-added
