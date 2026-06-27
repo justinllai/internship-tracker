@@ -70,8 +70,12 @@ function Login() {
                 // localStorage persists even if the page refreshes.
                 localStorage.setItem('token', data.access_token)
 
-                // For now just alert — we'll add proper navigation later
-                alert('Login successful! Dashboard coming soon.')
+                // Redirect to the dashboard now that the user is logged in.
+                // We changed this from an alert() to a real navigation
+                // because the Dashboard page now exists at /dashboard.
+                // The user will stay logged in until they click logout
+                // or the token expires (30 minutes).
+                navigate('/dashboard')
             } else {
                 // response not ok means login failed
                 // data.detail is the error message from FastAPI
