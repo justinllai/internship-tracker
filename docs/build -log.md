@@ -262,3 +262,45 @@ DecisionChoiceWhyToken storagelocalStoragePersists across page refreshes so user
 
 BUGS DEBUGGED
 BugCauseFixFrontend not pushing to GitHubCreate React App created its own .git inside frontend/ making it a submoduleDeleted frontend/.git, ran git rm -r --cached frontend, re-added
+
+
+
+Session Recap — Internship Tracker: Dashboard
+Date: June 26, 2026
+
+Time spent: ~1 hour
+
+WHAT
+Built the Dashboard page — the core of the app. Users can now log in, see all their applications, add new ones, update statuses, and delete applications through a real UI.
+
+WHY
+The app was fully functional on the backend but had no real user interface for managing applications. The Dashboard is what turns this from an API into an actual product people can use. This is the session where everything came together — frontend talking to backend, real data being saved and displayed.
+
+HOW
+Step 1 — Created Dashboard.js
+Key pieces:
+
+useEffect — runs on page load, checks for token, fetches applications
+fetchApplications() — GET request to /applications with JWT token in header
+handleCreateApp() — POST request to create new application
+handleStatusChange() — PUT request to update just the status
+handleDelete() — DELETE request to remove an application
+handleLogout() — clears token from localStorage, redirects to login
+getStatusColor() — returns color based on status (blue/yellow/green/red)
+
+Step 2 — Updated App.js
+
+Added import Dashboard from './pages/Dashboard'
+Added <Route path="/dashboard" element={<Dashboard />} />
+
+Step 3 — Updated Login.js
+
+Replaced alert('Login successful!') with navigate('/dashboard')
+Now users are automatically sent to Dashboard after login
+
+
+KEY CONCEPTS LEARNED
+ConceptPlain EnglishuseEffectRuns code when component loads — like "on page load do this"[] dependency arrayEmpty array means useEffect runs only once on mountFrontend protected routeCheck for token on load — redirect to login if missinglocalStorage.getItemReads stored token so we can attach it to requestsAuthorization: BearerHow we send JWT token in every protected requestresponse.status === 401Token expired — clear it and redirect to loginOptimistic UI updateUpdate local state immediately without refetching from backendapplications.map()Loop through applications and render a card for each oneapplications.filter()Count applications by status for the stats barEmpty stateA friendly message when there's no data yet{...app, status: newStatus}Spread operator — copy all fields but override status
+
+DECISIONS MADE
+DecisionChoiceWhyToken checkOn every protected page loadSecurity — can't access dashboard without loginUI update after CRUDUpdate local state, don't refetchFaster UX — no extra network request neededStatus colorsBlue/Yellow/Green/RedInstantly communicate meaning without readingEmpty state message"No applications yet. Click + Add Application"Better UX than a blank pageLogoutClear token + redirect to loginToken gone means next visit requires fresh login
