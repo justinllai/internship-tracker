@@ -1,5 +1,5 @@
 # ============================================================
-# database.py — Sets up our SQLite database connection
+# database.py — Sets up our database connection
 # Think of this file as the "blueprint" for how our app
 # connects to and interacts with the database.
 # ============================================================
@@ -13,24 +13,40 @@ from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
+import os
+
+# load_dotenv reads our .env file and loads its contents into
+# the environment, so os.getenv() can actually find them.
+from dotenv import load_dotenv
+
+# Load environment variables from .env before anything below
+# tries to read them.
+load_dotenv()
+
 
 # ============================================================
 # DATABASE CONNECTION
 # ============================================================
 
-# This is the path to our SQLite database file.
-# SQLite stores everything in a single .db file — no separate
-# database server needed. Perfect for V1.
-# The "///" means the file is stored locally on our computer.
-DATABASE_URL = "sqlite:///./internship_tracker.db"
+# This is our database connection string, loaded from .env.
+# We used to hardcode a SQLite file path here ("sqlite:///./internship_tracker.db"),
+# but SQLite just writes to a local file — that doesn't survive
+# on most hosting platforms, since their filesystems get wiped
+# on every restart/redeploy.
+# Postgres (hosted on Neon) is a real database server, so our
+# data persists independently of our backend code.
+# The real connection string lives only in .env, never in this
+# file, so it's never committed to version control.
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # The engine is our actual connection to the database.
-# Think of it as the pipeline between Python and the .db file.
-# check_same_thread=False is needed for FastAPI because it
-# handles multiple requests at the same time.
-engine = create_engine(
-    DATABASE_URL, connect_args={"check_same_thread": False}
-)
+# Think of it as the pipeline between Python and Postgres.
+# Unlike SQLite, Postgres doesn't need check_same_thread=False —
+# that flag only existed to work around SQLite's single-thread
+# file-locking behavior. Postgres is a networked server built to
+# handle many simultaneous connections on its own, so no special
+# thread handling is needed here.
+engine = create_engine(DATABASE_URL)
 
 # SessionLocal is a factory that creates database sessions.
 # A session is like a temporary workspace where we read/write

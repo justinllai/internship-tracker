@@ -11,6 +11,11 @@
 
 from datetime import datetime, timedelta
 from typing import Optional
+import os
+
+# load_dotenv reads our .env file and loads its contents into
+# the environment, so os.getenv() can actually find them.
+from dotenv import load_dotenv
 
 # CryptContext is what handles password hashing.
 # bcrypt is the hashing algorithm — it's the industry standard
@@ -25,6 +30,11 @@ from jose import JWTError, jwt
 from schemas import TokenData
 
 
+# Load environment variables from .env before anything below
+# tries to read them.
+load_dotenv()
+
+
 # ============================================================
 # CONFIGURATION
 # ============================================================
@@ -32,9 +42,10 @@ from schemas import TokenData
 # SECRET_KEY is used to sign our JWT tokens.
 # Think of it like a wax seal on a letter — it proves the
 # token came from us and hasn't been tampered with.
-# In production this should be a long random string stored
-# in a .env file. We'll improve this later.
-SECRET_KEY = "changethislatertoasecretrandomstring"
+# Loaded from .env so the real value is never committed to
+# version control (GitHub only ever sees this line of code,
+# never the actual secret string).
+SECRET_KEY = os.getenv("SECRET_KEY")
 
 # The algorithm used to sign the token.
 # HS256 is the most common and secure choice for V1.
