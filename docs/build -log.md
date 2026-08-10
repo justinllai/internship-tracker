@@ -304,3 +304,37 @@ ConceptPlain EnglishuseEffectRuns code when component loads — like "on page lo
 
 DECISIONS MADE
 DecisionChoiceWhyToken checkOn every protected page loadSecurity — can't access dashboard without loginUI update after CRUDUpdate local state, don't refetchFaster UX — no extra network request neededStatus colorsBlue/Yellow/Green/RedInstantly communicate meaning without readingEmpty state message"No applications yet. Click + Add Application"Better UX than a blank pageLogoutClear token + redirect to loginToken gone means next visit requires fresh login
+
+## Session 5 — August 10, 2026
+**Focus:** Deployment prep — secrets management + SQLite → Postgres migration
+
+### What I did
+- Installed `python-dotenv` and moved `SECRET_KEY` (auth.py) and `DATABASE_URL` (database.py) out of hardcoded values into a `.env` file, loaded via `os.getenv()`
+- Generated a new cryptographically secure `SECRET_KEY` using Python's `secrets.token_hex(32)`, replacing the old placeholder value
+- Created a Neon Postgres database and migrated `database.py` from SQLite to Postgres:
+  - Removed `connect_args={"check_same_thread": False}` (SQLite-only, not needed for Postgres)
+  - Installed `psycopg2-binary` as the Postgres driver SQLAlchemy needed
+- Verified the full auth + database flow end-to-end against the live Postgres database:
+  - `/register` successfully creates a user (confirmed via API response AND direct SQL query)
+  - Duplicate-email protection correctly returns 400
+  - `/login` successfully returns a valid JWT using the new `SECRET_KEY`
+
+### Bugs hit and fixed
+- **Phantom `.env` file:** VS Code sidebar showed `.env` as present, but it didn't actually exist on disk (`Get-ChildItem -Force` returned nothing). Recreated it via terminal (`New-Item .env`) and verified with byte-count checks before proceeding.
+- **Zombie uvicorn process:** After multiple restarts during debugging, a stale process (PID 33144) left a backlog of `ESTABLISHED`/`CLOSE_WAIT` connections on port 8000, silently blocking new requests (including `/health`, which has zero dependencies). Diagnosed with `netstat -ano | findstr :8000`; resolved after a clean restart.
+- **Duplicate `requirements.txt`:** An extra `requirements.txt` had been accidentally generated in the repo root (from running `pip freeze` in the wrong directory). Deleted — `backend/requirements.txt` is the only one that matters for deployment.
+
+### Key concepts reinforced
+- Why secrets can't live in committed code once a project touches GitHub/production (JWT secret = full auth bypass if leaked)
+- SQLite (file-based) vs. Postgres (networked server) — why connection strings, drivers, and thread-safety handling differ between them
+- Why hosting platforms with ephemeral filesystems make SQLite unsuitable for deployment
+
+### Verified working
+- [x] `.env` correctly excluded from git (`git status` confirmed no `.env` in tracked/untracked files)
+- [x] `/register`, `/login` tested against live Neon Postgres database
+- [x] Data persistence confirmed via direct SQL query, independent of the API
+
+### Next session
+- Update CORS config for production frontend URL
+- Deploy backend to Render
+- Deploy frontend to Vercel/Netlify
