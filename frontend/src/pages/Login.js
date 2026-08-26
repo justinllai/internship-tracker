@@ -9,6 +9,7 @@
 // useEffect would let us run code when the component loads (not needed here yet)
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+const apiUrl = process.env.REACT_APP_API_URL
 
 function Login() {
 
@@ -51,12 +52,11 @@ function Login() {
         try {
             // Send a POST request to our FastAPI /login endpoint
             // This is the same request we made in PowerShell, but from React
-            const response = await fetch('http://localhost:8000/login', {
+            const response = await fetch(`${apiUrl}/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                // Convert our state values to JSON to send to the backend
                 body: JSON.stringify({ email, password })
             })
 

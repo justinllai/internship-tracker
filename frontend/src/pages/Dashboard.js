@@ -7,6 +7,7 @@
 
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+const apiUrl = process.env.REACT_APP_API_URL
 
 function Dashboard() {
 
@@ -63,7 +64,7 @@ function Dashboard() {
 
     async function fetchApplications(token) {
         try {
-            const response = await fetch('http://localhost:8000/applications', {
+            const response = await fetch(`${apiUrl}/applications`, {
                 method: 'GET',
                 headers: {
                     // This is how we send the token to the backend
@@ -100,7 +101,7 @@ function Dashboard() {
         const token = localStorage.getItem('token')
 
         try {
-            const response = await fetch('http://localhost:8000/applications', {
+            const response = await fetch(`${apiUrl}/applications`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -133,7 +134,7 @@ function Dashboard() {
         const token = localStorage.getItem('token')
 
         try {
-            const response = await fetch(`http://localhost:8000/applications/${id}`, {
+            const response = await fetch(`${apiUrl}/applications/${id}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -162,7 +163,7 @@ function Dashboard() {
         const token = localStorage.getItem('token')
 
         try {
-            const response = await fetch(`http://localhost:8000/applications/${id}`, {
+            const response = await fetch(`${apiUrl}/applications/${id}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`
