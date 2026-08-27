@@ -55,6 +55,8 @@ function Dashboard() {
 
         // Step 2: Fetch their applications
         fetchApplications(token)
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
 
