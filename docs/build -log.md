@@ -338,3 +338,53 @@ DecisionChoiceWhyToken checkOn every protected page loadSecurity — can't acces
 - Update CORS config for production frontend URL
 - Deploy backend to Render
 - Deploy frontend to Vercel/Netlify
+
+## Session 6/7 — August 13 & 26, 2026
+**Focus:** Full production deployment — backend to Render, frontend to Vercel, end-to-end live testing
+
+### What I did
+
+**Backend deployment (Render)**
+- Created Render account with GitHub access scoped to only `internship-tracker` (least-privilege)
+- Configured web service: Python 3, Root Directory `backend`, Build Command `pip install -r requirements.txt`, Start Command `uvicorn main:app --host 0.0.0.0 --port $PORT`
+- Added `DATABASE_URL` and `SECRET_KEY` as Render environment variables (separate copy from local `.env` — Render can't read a file that was never pushed to GitHub)
+- Verified `/health`, `/docs`, `/register`, `/login` all work against the live Neon database
+
+**Frontend environment setup**
+- Created `frontend/.env` with `REACT_APP_API_URL` pointing to the Render backend URL
+- Fixed a gap in `frontend/.gitignore` — Create React App's default template only ignores `.env.local` variants, not plain `.env`; added `.env` explicitly
+- Replaced hardcoded `http://localhost:8000` with `apiUrl` (`process.env.REACT_APP_API_URL`) across `Login.js`, `Register.js`, and all four `fetch()` calls in `Dashboard.js`
+- Verified locally: React dev server (`localhost:3000`) successfully talked to the live Render backend end-to-end before ever touching Vercel
+
+**Frontend deployment (Vercel)**
+- Created Vercel account, GitHub access scoped to `internship-tracker` only
+- Set Root Directory to `frontend` (Vercel initially tried to deploy `backend` too as a second service — not needed, already live on Render)
+- Added `REACT_APP_API_URL` as a Vercel environment variable *before* the first build (required — React bakes env vars into static files at build time, not read live like a backend)
+- Enabled 2FA on the Vercel account
+
+**CORS fix for production**
+- Updated `allow_origins` in `main.py` to include the real deployed frontend origin alongside `localhost:3000`
+- Deliberately avoided `allow_origins=["*"]` due to the `allow_credentials=True` + wildcard CSRF anti-pattern
+
+### Bugs hit and fixed
+- **Wrong initial config on both Render and Vercel:** both platforms defaulted to Node.js/`yarn` settings for the FastAPI backend since they auto-detect generically; had to manually correct Language, Build Command, and Start Command on Render.
+- **ESLint build failure on Vercel (`react-hooks/exhaustive-deps`):** `Dashboard.js`'s mount-only `useEffect` was missing `fetchApplications` and `navigate` from its dependency array. Locally this is just a warning; Vercel's build sets `CI=true`, which upgrades CRA warnings to hard errors. Diagnosed that `navigate` is stable (safe to ignore) but `fetchApplications` is recreated every render (adding it would cause an infinite fetch loop) — used `// eslint-disable-next-line react-hooks/exhaustive-deps` rather than blindly satisfying the linter.
+- **Wrong Vercel production domain assumed:** guessed `internship-tracker-jlai1.vercel.app` by pattern-matching Render's URL style instead of checking Vercel's dashboard. The real stable domain (`internship-tracker-chi-orcin.vercel.app`) was different, found under the project's actual Domains section — cost a round of CORS debugging before catching it.
+- **Stale CORS/browser cache confusion:** briefly mistook a cached preflight rejection for a still-broken deploy; confirmed via Render's deploy history that the fix was already live, then isolated the real issue (wrong domain) by testing in the correct location.
+
+### Key concepts reinforced
+- `--reload` / `0.0.0.0` / `$PORT`: why local dev flags don't carry over to production, and what each one actually does
+- CORS is enforced entirely by the browser, not the server — a blocked request never reaches FastAPI at all
+- Environment variables: backend reads them live at runtime (`os.getenv`, restart picks up changes); frontend bakes them in permanently at build time (`process.env`, requires a full rebuild to pick up changes)
+- Least-privilege GitHub access scoping, applied consistently across Neon, Render, and Vercel
+
+### Verified working
+- [x] Backend live and independently reachable on Render (`/health`, `/docs`, `/register`, `/login`)
+- [x] Frontend live on Vercel at the correct production domain
+- [x] Full register → login flow tested successfully on the actual live site (not localhost, not `/docs`)
+- [x] CORS correctly scoped to real origins only, no wildcard
+
+### Next session
+- Test full CRUD cycle (create/edit status/delete an application) on the live production site
+- Consider centralizing frontend API calls into a single file instead of three separate hardcoded-then-fixed locations
+- Ready to share with friends once CRUD is confirmed — flag Render free-tier cold start (~30-60s first request after idle) as expected behavior, not a bug
