@@ -388,3 +388,75 @@ DecisionChoiceWhyToken checkOn every protected page loadSecurity — can't acces
 - Test full CRUD cycle (create/edit status/delete an application) on the live production site
 - Consider centralizing frontend API calls into a single file instead of three separate hardcoded-then-fixed locations
 - Ready to share with friends once CRUD is confirmed — flag Render free-tier cold start (~30-60s first request after idle) as expected behavior, not a bug
+## Session 8 — November 22, 2026
+**Focus:** Redesign (professional-network style UI) + live application tracking: jobs near you, Gmail reply detection, notifications. Built with a reviewer subagent that challenged every design decision.
+
+### What I did
+
+**Process: build → get challenged → fix**
+- Created a reusable reviewer subagent (`.claude/agents/reviewer.md`) whose job is to test, find failure scenarios, argue the opposite side ("rebuttal"), and explain the reasoning.
+- Ran it twice: once on the *design* before writing code, once on the *finished code*. The design review changed 7 decisions (see `docs/interview-prep.md`, marked 🔁).
+
+**Backend**
+- Split `main.py` into `routers/` (HTTP) and `services/` (logic), plus `config.py`, `deps.py`, `crypto.py`
+- Added Alembic migrations (`0001` baseline = old schema, `0002` = new columns/tables). Removed `create_all()` from startup
+- New tables: `email_connections` (encrypted Gmail token), `email_events` (sender/subject/date, no bodies), `notifications`
+- New columns on `applications`: `company_domain`, `job_url`, `location`, `source`, `external_id`, `track_email`, `applied_at`, `updated_at`; new status `Saved`
+- `POST /location/resolve`: coordinates or typed address → "City, ST" via OpenStreetMap, rounded to ~1 km
+- `GET /jobs/search`: Adzuna internship search with intern-only title filter + 10-minute cache
+- Gmail OAuth (read-only) with frontend-routed callback + `state.sub == current user` check, Fernet/MultiFernet token encryption, revoke on disconnect
+- Inbox sync: one combined Gmail query, ATS-aware matching, keyword classifier, *suggested* status changes, DB lease against overlapping syncs, unique constraint + savepoints against duplicates, 7-day test-mode expiry → "Reconnect" notification
+- Triggers: GitHub Actions cron (`/internal/sync-all`, shared secret), "Check now" (rate-limited), opportunistic background sync while the site is open
+- CORS tightened: explicit methods/headers, `allow_credentials=False`
+- `requirements.txt` converted from UTF-16 (PowerShell's `pip freeze >` default) to UTF-8; added `requirements-dev.txt`
+
+**Frontend**
+- Replaced all inline styles with one design-token stylesheet (`index.css`), including dark mode via `prefers-color-scheme`
+- Sticky icon nav bar with live unread badge; 3-column layout (profile/stats · feed · inbox + jobs near you)
+- Central `api.js` (closes the Session 6/7 "next session" item), `ProtectedRoute` + layout route, `SessionContext`, `useVisiblePolling` hook
+- New pages: Tracker (replaces Dashboard), Jobs, Updates (notifications), Settings & privacy, OAuth callback
+- Just-in-time consent dialog after applying; location picker that explains before the browser prompt
+- `vercel.json` SPA rewrite so `/oauth/gmail` deep links work
+
+**Testing & CI**
+- 68 backend tests (pytest, SQLite built by the real Alembic migrations, all external APIs mocked) + 7 frontend tests
+- `test_migrations.py` fails if `models.py` and migrations drift apart
+- `.github/workflows/tests.yml` runs everything on every push; frontend build uses `CI=true` like Vercel
+- Smoke-tested the real server: `alembic upgrade head` on a fresh DB → uvicorn → register/login/CRUD/CORS over HTTP; live geocode of a ZIP and coordinates; confirmed access log contains no location data
+
+### Bugs hit and fixed
+- **OAuth account-linking hole (design, caught by reviewer):** signed `state` alone let an attacker's connect link attach a victim's inbox to the attacker's account → callback now goes through the frontend and requires the same logged-in user.
+- **Location leaking into logs (design, caught by reviewer):** `GET ?lat=&lng=` would be written to Uvicorn access logs → switched to POST body; verified in the real log.
+- **Dead fallback API:** The Muse jobs API returns 404 → Adzuna required, clear 503 when not configured.
+- **Cascade delete test failed:** SQLite ignores foreign keys by default (Postgres doesn't) → `PRAGMA foreign_keys=ON` so tests mirror prod.
+- **Classifier false positive (caught by writing tests):** "Thanks for applying… next steps… if we'd like to interview you" scored as an interview → weak-only interview signals now lose to acknowledgment phrases.
+- **Jest can't resolve `react-router-dom` v7:** CRA's Jest 27 ignores the `package.json` `exports` field → `moduleNameMapper` in `package.json`.
+- **Privacy nit (self-review):** geocode cache keys were raw typed addresses → hashed with SHA-256.
+- **Code review round 2 (reviewer subagent, after the build): 4 real bugs, each now has a regression test:**
+  - `PUT {"status": null}` was stored → every later `GET /applications` returned 500. "Optional" update fields now reject explicit null for NOT NULL columns.
+  - Persistent Gmail errors (e.g. API not enabled) were silent and retried every 30s → error shown in the UI + 15-minute backoff (reusing the sync lease column).
+  - Every sync re-read the same ~100 hiring-platform emails, and the consent text overstated how narrow the search was → incremental search window (`track_email_since`), Gmail pagination, honest consent copy.
+  - Disconnect could race a running sync and leave email data behind → `email_events.connection_id` FK with `ON DELETE CASCADE`, so the database itself enforces "all email data deleted".
+  - Also: stale-response race on the Jobs page (request-id guard), friendly message for Render's HTML error pages, rollback before releasing the lease.
+
+### Key concepts learned
+- OAuth 2.0 authorization-code flow, refresh vs access tokens, `state` and why a signature isn't enough (session binding)
+- Encryption vs hashing (reversible vs one-way) and key rotation with MultiFernet
+- Data minimization: rounding, discarding, hashing, POST vs GET for sensitive data
+- Polling vs WebSockets/SSE, and the Page Visibility API
+- Running background work on a sleeping host: external cron, idempotency, DB leases, unique constraints, savepoints
+- Schema migrations: why `create_all` isn't enough, baselining with `alembic stamp`
+- Making test environments mirror production (SQLite foreign keys)
+- Suggest vs auto-act when a heuristic can be wrong (human-in-the-loop)
+
+### Verified working
+- [x] 68/68 backend tests, 7/7 frontend tests, strict `CI=true` production build
+- [x] Fresh DB migrates with `alembic upgrade head`; server boots and serves the full API
+- [x] Missing Adzuna/Google keys → clear "not configured" messages, no crashes
+- [x] CORS rejects unknown origins, allows the frontend
+- [x] Live OpenStreetMap lookup returns only "City, ST"; access log shows no coordinates/address
+
+### Next session
+- Run `alembic stamp 0001` + `alembic upgrade head` against Neon, update Render start command + env vars (see `docs/setup-live-tracking.md`)
+- Create Google Cloud OAuth client + Adzuna key; add GitHub secrets for the cron
+- Test the full Gmail flow on the live site with a real reply
