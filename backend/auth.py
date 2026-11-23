@@ -9,9 +9,10 @@
 # ============================================================
 
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import os
+import secrets
 
 # load_dotenv reads our .env file and loads its contents into
 # the environment, so os.getenv() can actually find them.
@@ -95,9 +96,9 @@ def create_access_token(data: dict, expires_delta=None):
 
     # Set the expiry time — either custom or default 30 minutes.
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
     # Add the expiry time to the token data.
     # "exp" is a standard JWT field that means "expiration".
@@ -128,4 +129,45 @@ def verify_token(token: str):
     except JWTError:
         # If anything goes wrong (expired, tampered, invalid)
         # we return None which will cause a 401 Unauthorized error.
+        return None
+
+# ============================================================
+# OAUTH "STATE" TOKENS — protect the Gmail connect flow
+# ============================================================
+# When we send a user to Google's consent screen we attach a
+# `state` value; Google hands it back unchanged. We make it a
+# short-lived signed JWT that says "user #42 started a Gmail
+# connection".
+#
+# The signature proves WE created it (can't be forged).
+# BUT a signature alone is not enough: an attacker could start
+# the flow on THEIR account and trick a victim into finishing
+# it, linking the victim's inbox to the attacker's account.
+# So the completion endpoint ALSO requires the victim's own
+# login token and checks state.sub == current user
+# (see routers/email_routes.py). Both checks together = safe.
+
+OAUTH_STATE_PURPOSE = "gmail_oauth"
+
+
+def create_oauth_state(user_id: int) -> str:
+    payload = {
+        "sub": str(user_id),
+        "aud": OAUTH_STATE_PURPOSE,          # can't be reused as a login token
+        "nonce": secrets.token_urlsafe(16),  # every state is unique
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=10),
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def verify_oauth_state(state: str) -> Optional[int]:
+    """Return the user id inside a valid state token, else None."""
+    try:
+        payload = jwt.decode(state, SECRET_KEY, algorithms=[ALGORITHM], audience=OAUTH_STATE_PURPOSE)
+        # python-jose skips the audience check when a token has no
+        # "aud" at all (like our login tokens), so check explicitly.
+        if payload.get("aud") != OAUTH_STATE_PURPOSE:
+            return None
+        return int(payload["sub"])
+    except (JWTError, KeyError, ValueError):
         return None
